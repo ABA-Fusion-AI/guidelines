@@ -48,6 +48,16 @@ add the rest when they help. Examples: `AUTH_API_URL`, `JWT_REFRESH_SECRET`,
      | sed -E 's/.*env\.//' | sort -u
    ```
 
+8. **Defaults live in `.env.example`, not in the schema.** Put the working value
+   in `.env.example` (a fake placeholder for secrets — see below), where anyone
+   can read it, copy it, and review it in a diff. Do **not** hide it as a
+   `.default()` in the validation schema. A hidden default is invisible — you
+   cannot tell which value is actually used without reading code — so a stale or
+   wrong one ships silently: a port that drifted from the real one, or `lowdb`
+   left as the database adapter in production. We originally added schema defaults
+   for convenience, and it backfired into exactly these bugs. Keep the value where
+   it can be seen.
+
 ## Bad → Good
 
 | Bad                  | Good                     | Why                            |
@@ -58,6 +68,32 @@ add the rest when they help. Examples: `AUTH_API_URL`, `JWT_REFRESH_SECRET`,
 | `DISABLE_ORBIT`      | `ORBIT_ENABLED`          | say yes, not no                |
 | `DB_NAME`            | `DATABASE_NAME`          | spell out `DATABASE`           |
 | `PROD_DATABASE_URL`  | `DATABASE_URL`           | same name in every environment |
+
+## Reserved names and ports
+
+Some names and ports are fixed for the whole monorepo. Use them as they are; do
+not invent a per-service variant.
+
+**Shared variable names** — one name, used by every service that needs it (do not
+prefix them per app): `NODE_ENV`, `LOG_LEVEL`, `CORS_ORIGINS`, `DATABASE_URL`,
+`REDIS_URL`, `JWT_REFRESH_SECRET`, `AUTH_ISSUER`.
+
+**Ports** — each service owns one port. Do not reuse a port. When you add a
+service, give it the next free port and add it here.
+
+| Service                          | Port  |
+|----------------------------------|-------|
+| automation-api (HTTP)            | 3000  |
+| auth-api (HTTP)                  | 3001  |
+| repo-tree (HTTP)                 | 3006  |
+| automation-api ↔ engine (gRPC)   | 4000  |
+| postgres                         | 5432  |
+| redis                            | 6379  |
+| mongo                            | 27017 |
+| automation-frontend             | 8080  |
+| auth-frontend                   | 8085  |
+| orbit-frontend                  | 8086  |
+| adminer                         | 8089  |
 
 ## Secrets
 
@@ -78,5 +114,8 @@ signing key, or database password.
 ## Declaring
 
 > [!NOTE]
-> Put every variable in the app's `.env.example` with a short comment and a fake
-> value. The app checks its variables at startup and stops if one is missing.
+> Put every variable in the app's `.env.example` with a short comment and its
+> value (a fake one for secrets). At startup the app **warns** in its logs about
+> a variable that is missing, or set to a value that is wrong for the environment
+> — for example a dev database adapter in production — so devops sees the problem
+> early instead of debugging a strange failure later. Warn; do not shut down.
